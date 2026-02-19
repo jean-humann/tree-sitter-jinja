@@ -156,6 +156,7 @@ bool tree_sitter_jinja_external_scanner_scan(void *payload, TSLexer *lexer, cons
                             return true;
                         }
                         // No content before raw — return raw_start directly
+                        lexer->mark_end(lexer);
                         lexer->result_symbol = TOKEN_TYPE_RAW_START;
                         s->is_block_raw = true;
                         return true;
