@@ -748,7 +748,6 @@
   {
     "type": "source",
     "named": true,
-    "root": true,
     "fields": {},
     "children": {
       "multiple": true,
@@ -1062,6 +1061,10 @@
     "named": false
   },
   {
+    "type": "=",
+    "named": false
+  },
+  {
     "type": "==",
     "named": false
   },
@@ -1291,6 +1294,10 @@
   },
   {
     "type": "integer",
+    "named": false
+  },
+  {
+    "type": "is",
     "named": false
   },
   {

@@ -28,7 +28,7 @@ module.exports = grammar({
     raw_block: $ =>
       seq($.raw_start, alias(repeat($._raw_char), $.raw_body), $.raw_end),
     inline: $ =>
-      seq(
+      prec(1, seq(
         '# ',
         choice(
           'if',
@@ -64,6 +64,6 @@ module.exports = grammar({
         ),
         $._inline_words,
         /\r?\n/,
-      ),
+      )),
   },
 });
