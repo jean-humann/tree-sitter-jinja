@@ -3,7 +3,7 @@ const gram = require('../grammar.js');
 module.exports = grammar({
   name: 'jinja',
   extras: _ => [/\s/],
-  externals: $ => [$.raw_start, $._raw_char, $.raw_end, $._inline_words],
+  externals: $ => [$.raw_start, $._raw_char, $.raw_end, $._inline_words, $._ext_content],
   rules: {
     source: $ =>
       repeat(
@@ -17,6 +17,7 @@ module.exports = grammar({
         ),
       ),
     ...gram.rules,
+    content: $ => $._ext_content,
     render_expression: $ =>
       seq(
         choice('{{', '{{-', '{{+'),

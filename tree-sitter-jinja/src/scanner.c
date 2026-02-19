@@ -7,6 +7,7 @@ enum TokenType {
     TOKEN_TYPE_RAW_CHAR,
     TOKEN_TYPE_RAW_END,
     TOKEN_INLINE_WORDS,
+    TOKEN_TYPE_CONTENT,
 };
 
 typedef struct TokenStack {
@@ -66,6 +67,21 @@ typedef struct Scanner {
 static inline void skip_char(TSLexer *lexer, char ch);
 #define is_matching_raw valid_symbols[TOKEN_TYPE_RAW_END]
 
+// Try to match {% raw %} starting AFTER already consuming "{%".
+// Returns true if matched, false otherwise.
+static inline bool try_match_raw_block(TSLexer *lexer) {
+    skip_char(lexer, '-');
+    skip_white_space(lexer, true);
+    if(parse_sequence(lexer, "raw")) {
+        skip_white_space(lexer, true);
+        skip_char(lexer, '-');
+        if(parse_sequence(lexer, "%}")) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool tree_sitter_jinja_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     if(lexer->eof(lexer)) {
         return false;
@@ -117,20 +133,73 @@ bool tree_sitter_jinja_external_scanner_scan(void *payload, TSLexer *lexer, cons
         return true;
     }
 
+    // Content scanning with integrated raw_start detection.
+    // The external scanner bypasses tree-sitter's keyword matching, so words
+    // like 'false', 'true', 'if', etc. in YAML content between Jinja2 tags
+    // don't get tokenized as Jinja2 keywords.
+    if(valid_symbols[TOKEN_TYPE_CONTENT]) {
+        bool has_content = false;
+        while(!lexer->eof(lexer)) {
+            if(lexer->lookahead == '{') {
+                lexer->mark_end(lexer);  // Content ends before '{'
+                lexer->advance(lexer, false);
+
+                if(lexer->lookahead == '%') {
+                    // Could be {% raw %} or a regular control block
+                    lexer->advance(lexer, false);  // consume '%'
+
+                    if(valid_symbols[TOKEN_TYPE_RAW_START] && try_match_raw_block(lexer)) {
+                        // It's {% raw %}
+                        if(has_content) {
+                            // Return content first; raw_start will be matched next call
+                            lexer->result_symbol = TOKEN_TYPE_CONTENT;
+                            return true;
+                        }
+                        // No content before raw — return raw_start directly
+                        lexer->result_symbol = TOKEN_TYPE_RAW_START;
+                        s->is_block_raw = true;
+                        return true;
+                    }
+                    // Regular {%...%} control block — content ends before it
+                    if(has_content) {
+                        lexer->result_symbol = TOKEN_TYPE_CONTENT;
+                        return true;
+                    }
+                    return false;
+                }
+
+                if(lexer->lookahead == '{' || lexer->lookahead == '#') {
+                    // {{ or {# delimiter — content ends before it
+                    if(has_content) {
+                        lexer->result_symbol = TOKEN_TYPE_CONTENT;
+                        return true;
+                    }
+                    return false;
+                }
+
+                // '{' followed by something else — it's just content
+                has_content = true;
+                continue;
+            }
+            has_content = true;
+            lexer->advance(lexer, false);
+        }
+        if(has_content) {
+            lexer->mark_end(lexer);
+            lexer->result_symbol = TOKEN_TYPE_CONTENT;
+            return true;
+        }
+        return false;
+    }
+
     if(valid_symbols[TOKEN_TYPE_RAW_START]) {
         switch(lexer->lookahead) {
             case '{': {
                 if(parse_sequence(lexer, "{%")) {
-                    skip_char(lexer, '-');
-                    skip_white_space(lexer, true);
-                    if(parse_sequence(lexer, "raw")) {
-                        skip_white_space(lexer, true);
-                        skip_char(lexer, '-');
-                        if(parse_sequence(lexer, "%}")) {
-                            lexer->result_symbol = TOKEN_TYPE_RAW_START;
-                            s->is_block_raw = true;
-                            return true;
-                        }
+                    if(try_match_raw_block(lexer)) {
+                        lexer->result_symbol = TOKEN_TYPE_RAW_START;
+                        s->is_block_raw = true;
+                        return true;
                     }
                 }
                 break;

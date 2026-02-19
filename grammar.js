@@ -102,47 +102,7 @@ module.exports = {
       ),
     if_expression: $ => seq('if', $.expression),
 
-    // All keyword strings from the grammar must be listed here so the parser
-    // can consume keyword tokens appearing in content between Jinja2 tags.
-    // Without this, tree-sitter's lexer produces keyword tokens (e.g. 'false')
-    // instead of matching /[^{]/, and the parser errors out.
-    content: _ =>
-      prec.right(
-        repeat1(
-          choice(
-            /[^{]/, /\{[^#%{]/, '#', '# ',
-            // Operators (single-char strings have lexer priority over regex)
-            '+', '-', '*', '/', '%', '=', '>', '<', '|', '~', '!', '_',
-            '.', ',', ':', '(', ')', '[', ']',
-            '//', '**', '==', '!=', '>=', '<=',
-            // Literals
-            'true', 'false', 'null', 'none',
-            // Control flow
-            'if', 'else', 'elif', 'endif',
-            'for', 'in', 'endfor', 'continue', 'break',
-            'set', 'endset',
-            'block', 'endblock', 'required',
-            'with', 'endwith', 'without',
-            'filter', 'endfilter',
-            'macro', 'endmacro',
-            'call', 'endcall',
-            'extends', 'import', 'from', 'as', 'include',
-            'do', 'trans', 'endtrans', 'pluralize',
-            'autoescape', 'endautoescape',
-            'debug', 'recursive',
-            'ignore', 'missing', 'context',
-            // Operators (word)
-            'and', 'or', 'not', 'is',
-            // Builtin tests
-            'boolean', 'callable', 'defined', 'divisibleby',
-            'eq', 'escaped', 'even', 'float',
-            'ge', 'gt', 'integer', 'iterable',
-            'le', 'lower', 'lt', 'mapping',
-            'ne', 'number', 'odd', 'sameas',
-            'sequence', 'string', 'test', 'undefined', 'upper',
-          ),
-        ),
-      ),
+    content: _ => prec.right(repeat1(choice(/[^{]/, /\{[^#%]/, '#', '# '))),
     identifier: _ => /[a-zA-Z_][\w\d_]*/,
     comment: _ =>
       choice(
